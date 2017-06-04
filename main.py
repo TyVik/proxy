@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from flask import Flask, Response, request
 import requests
 
-from processors import modify_links
+from processors import modify_links, modify_text
 from settings import PROXY_SITE, LOG
 
 app = Flask(__name__.split('.')[0])
@@ -17,7 +17,7 @@ def proxy(url):
     if 'text/html' in r.headers['Content-Type']:
         # exclude static from parsing
         soup = BeautifulSoup(content.decode(), "html.parser")  # OPTIMIZE: use lxml instead html.parser
-        content = str(modify_links(soup))
+        content = str(modify_text(modify_links(soup)))
     return Response(content)
 
 
