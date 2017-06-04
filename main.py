@@ -1,17 +1,26 @@
 import asyncio
 import aiohttp
 from aiohttp import web
+from aiohttp.web_request import Request
 from bs4 import BeautifulSoup
 
 import processors
 from settings import PROXY_SITE, LOG, PROCESSORS, SERVER_PORT, PROXY_URL, SERVER_HOST
 
 
-async def proxy(request):
+async def proxy(request: Request) -> web.Response:
     def prepare_headers(headers):
         headers['host'] = PROXY_SITE
         headers['Accept-Encoding'] = 'deflate'
         return headers
+
+    def response_body(raw: bytes) -> bytes:
+        content = raw.decode()
+        soup = BeautifulSoup(content, "html.parser")  # OPTIMIZE: use lxml instead html.parser
+        for processor, kwargs in PROCESSORS.items():
+            func = getattr(processors, processor)
+            soup = func(soup, **kwargs)
+        return str.encode(str(soup))
 
     url = '{site}{url}'.format(site=PROXY_URL, url=request.match_info['path'])
     async with aiohttp.ClientSession() as session:
@@ -20,13 +29,8 @@ async def proxy(request):
             LOG.debug("Got %s response from %s", resp.status, url)
             raw = await resp.read()
             if 'text/html' in resp.headers['Content-Type']:
-                content = raw.decode('utf-8', errors='strict')
                 # exclude static from parsing
-                soup = BeautifulSoup(content, "html.parser")  # OPTIMIZE: use lxml instead html.parser
-                for processor, kwargs in PROCESSORS.items():
-                    func = getattr(processors, processor)
-                    soup = func(soup, **kwargs)
-                raw = str.encode(str(soup))
+                raw = response_body(raw)
             response = web.Response(body=raw, status=resp.status, headers=resp.headers)
             response.enable_chunked_encoding()
             return response
