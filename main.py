@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from flask import Flask, Response, request
 import requests
 
-from processors import modify_links, modify_text
-from settings import PROXY_SITE, LOG
+import processors
+from settings import PROXY_SITE, LOG, PROCESSORS
 
 app = Flask(__name__.split('.')[0])
 
@@ -17,7 +17,10 @@ def proxy(url):
     if 'text/html' in r.headers['Content-Type']:
         # exclude static from parsing
         soup = BeautifulSoup(content.decode(), "html.parser")  # OPTIMIZE: use lxml instead html.parser
-        content = str(modify_text(modify_links(soup)))
+        for processor, kwargs in PROCESSORS.items():
+            func = getattr(processors, processor)
+            soup = func(soup, **kwargs)
+        content = str(soup)
     return Response(content)
 
 

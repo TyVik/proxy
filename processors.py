@@ -3,14 +3,12 @@ import re
 from bs4 import Comment
 from flask import request
 
-from settings import PROXY_SITE, SKIP_TAG, SYMBOL
 
-
-def modify_links(soup):
+def modify_links(soup, site):
     for a in soup.findAll('a'):
         link = a.get('href', None)
         if link is not None:
-            a['href'] = link.replace("{}/".format(PROXY_SITE), request.host_url)
+            a['href'] = link.replace(site, request.host_url)
     return soup
 
 
@@ -19,10 +17,10 @@ def set_tm(text, symbol):
     return regex.sub("\\1" + symbol, text)
 
 
-def modify_text(soup):
+def modify_text(soup, symbol, skip_tags):
     for text in soup.findAll(text=True):
         if len(text) > 5 and not isinstance(text, Comment):
-            if text.parent is not None and text.parent.name in SKIP_TAG:
+            if text.parent is not None and text.parent.name in skip_tags:
                 continue
-            text.replace_with(set_tm(text, SYMBOL))
+            text.replace_with(set_tm(text, symbol))
     return soup
